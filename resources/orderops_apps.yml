@@ -1,0 +1,81 @@
+# Two-App deployment plus the MLflow experiment used for agent tracing.
+resources:
+  # Keep traces in a user-scoped experiment to avoid cross-developer collisions.
+  experiments:
+    orderops_agent_traces:
+      name: /Users/${workspace.current_user.userName}/orderops-control-tower-${bundle.target}-traces
+
+  apps:
+    # Read-only data boundary: this App owns every SQL-facing MCP tool.
+    orderops_mcp:
+      name: mcp-orderops-${bundle.target}
+      description: Read-only OrderOps MCP tool service.
+      source_code_path: ../apps/mcp_server
+      resources:
+        # Resource names must match valueFrom keys in apps/mcp_server/app.yaml.
+        - name: sql_warehouse
+          description: Warehouse used by fixed MCP queries.
+          sql_warehouse:
+            id: ${var.sql_warehouse_id}
+            permission: CAN_USE
+        - name: orders_current
+          description: Current masked order state.
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.catalog_name}.silver.orders_current
+            permission: SELECT
+        # MCP queries intentionally select only operational, non-PII columns.
+        - name: order_history
+          description: CDC-derived order timeline.
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.catalog_name}.gold.order_history
+            permission: SELECT
+        - name: order_metrics
+          description: Current operational aggregates.
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.catalog_name}.gold.order_metrics
+            permission: SELECT
+
+    # User-facing UI and LangGraph runtime. It queries order data only through MCP.
+    orderops_control_tower:
+      name: orderops-control-tower-${bundle.target}
+      description: Streamlit and LangGraph interface for governed order operations.
+      source_code_path: ../apps/copilot_app
+      permissions:
+        # Opening the UI does not grant direct access to the underlying tables.
+        - level: CAN_USE
+          group_name: users
+      resources:
+        # Authorize calls to the separately deployed MCP App identity.
+        - name: mcp_app
+          description: OAuth-authenticated access to the MCP App.
+          app:
+            name: ${resources.apps.orderops_mcp.name}
+            permission: CAN_USE
+        # Endpoint availability varies by workspace, so its name is a bundle variable.
+        - name: llm_endpoint
+          description: Tool-capable Foundation Model API endpoint.
+          serving_endpoint:
+            name: ${var.llm_endpoint_name}
+            permission: CAN_QUERY
+        # MLflow autologging writes LangGraph traces to this experiment.
+        - name: mlflow_experiment
+          description: Agent execution traces.
+          experiment:
+            experiment_id: ${resources.experiments.orderops_agent_traces.id}
+            permission: CAN_EDIT
+        # The UI uses the warehouse only for a fixed-shape audit INSERT.
+        - name: sql_warehouse
+          description: Warehouse used only for the audit insert.
+          sql_warehouse:
+            id: ${var.sql_warehouse_id}
+            permission: CAN_USE
+        # MODIFY is restricted to low-cardinality request metadata—never prompt text.
+        - name: agent_audit
+          description: Minimal agent request metadata.
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.catalog_name}.monitoring.agent_audit
+            permission: MODIFY

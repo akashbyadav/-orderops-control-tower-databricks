@@ -1,0 +1,12 @@
+# Local Python environments and generated caches.
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# Operating-system metadata.
+.DS_Store
+
+# Local Databricks CLI state and developer-only environment variables.
+.databricks/
+.env

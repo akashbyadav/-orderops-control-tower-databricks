@@ -1,0 +1,14 @@
+# Databricks model, MCP, and workspace integrations.
+databricks-langchain>=0.8,<1.0
+databricks-mcp>=0.4,<1.0
+databricks-sdk>=0.63,<1.0
+# Keep the core and prebuilt LangGraph packages in the same compatibility band.
+# Older core versions do not expose ExecutionInfo/ServerInfo, which newer
+# langgraph-prebuilt releases may import during agent startup.
+langchain>=1.0,<2.0
+langgraph>=1.1.6,<1.2
+langgraph-prebuilt>=1.0.9,<1.1
+mlflow[databricks]>=3.14,<4.0
+# Small MCP payloads are converted to dataframes for the Streamlit UI.
+pandas>=2.2,<3.0
+streamlit>=1.45,<2.0

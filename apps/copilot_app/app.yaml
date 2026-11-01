@@ -1,0 +1,36 @@
+# Launch the Streamlit/LangGraph Databricks App.
+command:
+  - streamlit
+  - run
+  - app.py
+# valueFrom injects a bundle resource already authorized for this App's service
+# principal. These keys must match resources/orderops_apps.yml.
+env:
+  - name: DATABRICKS_WAREHOUSE_ID
+    valueFrom: sql_warehouse
+  - name: ORDEROPS_MCP_APP_NAME
+    valueFrom: mcp_app
+  # The bundle binds llm_endpoint to var.llm_endpoint_name. Its Free Edition
+  # default is databricks-meta-llama-3-1-8b-instruct and can be overridden.
+  - name: DATABRICKS_LLM_ENDPOINT
+    valueFrom: llm_endpoint
+  - name: MLFLOW_EXPERIMENT_ID
+    valueFrom: mlflow_experiment
+  # Keep tracing on for the learning path. Set this to "false" only if the
+  # workspace repeatedly cannot upload traces to the MLflow backend.
+  - name: ORDEROPS_ENABLE_MLFLOW_TRACING
+    value: "true"
+  # Keep trace uploads off the response path. A storage retry is recorded in
+  # the logs but cannot hold the chat request open.
+  - name: MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
+    value: "true"
+  # Bound retries for this interactive sample instead of retaining failed trace
+  # uploads for MLflow's much longer default retry window.
+  - name: MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT
+    value: "10"
+  # This is the only table the user-facing App may modify.
+  - name: AGENT_AUDIT_TABLE
+    valueFrom: agent_audit
+  - name: STREAMLIT_GATHER_USAGE_STATS
+    # Disable optional telemetry from the Streamlit framework itself.
+    value: "false"

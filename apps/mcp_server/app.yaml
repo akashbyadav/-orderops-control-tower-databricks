@@ -1,0 +1,17 @@
+# Launch the stateless MCP service through app.py so Python can read
+# DATABRICKS_APP_PORT and pass an integer port value to Uvicorn.
+command:
+  - python
+  - app.py
+# App resources become environment variables and authenticated permissions for
+# the MCP App service principal. Keep these names aligned with the bundle YAML.
+env:
+  - name: DATABRICKS_WAREHOUSE_ID
+    valueFrom: sql_warehouse
+  - name: ORDERS_CURRENT_TABLE
+    valueFrom: orders_current
+  # History supplies timelines and change counts; metrics supplies summaries.
+  - name: ORDER_HISTORY_TABLE
+    valueFrom: order_history
+  - name: ORDER_METRICS_TABLE
+    valueFrom: order_metrics

@@ -1,0 +1,2 @@
+# Lightweight local checks; Databricks provides Spark and notebook libraries.
+pytest>=8.0,<10.0

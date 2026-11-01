@@ -1,0 +1,5 @@
+# Authenticated Databricks SQL Statement Execution client.
+databricks-sdk>=0.63,<1.0
+# MCP protocol server and its ASGI runtime.
+fastmcp>=2.12,<4.0
+uvicorn>=0.30,<1.0

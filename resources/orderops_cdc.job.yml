@@ -1,0 +1,58 @@
+# Lakeflow Job that runs the complete CDC path in dependency order.
+resources:
+  jobs:
+    orderops_cdc_workflow:
+      name: orderops-cdc-workflow
+      description: Generate order events, apply CDC, publish history and metrics, and enforce quality checks.
+      # Avoid overlapping MERGE operations against the same project tables.
+      max_concurrent_runs: 1
+      queue:
+        # Preserve a requested run until the active run has finished.
+        enabled: true
+      # Job parameters appear as notebook widgets through the shared config file.
+      # Run initial once; subsequent runs use cdc and a previously unused batch ID.
+      parameters:
+        - name: catalog_name
+          default: ${var.catalog_name}
+        - name: load_mode
+          default: initial
+        - name: initial_order_count
+          default: "200"
+        - name: cdc_batch_id
+          default: "2"
+        - name: cdc_batch_size
+          default: "15"
+      tasks:
+        # 1. Produce deterministic initial events or a mixed incremental batch.
+        - task_key: generate_source_events
+          notebook_task:
+            notebook_path: ../notebooks/data_generation/01_generate_order_events.py
+
+        # 2. Apply the newest event for each order to the silver snapshot.
+        - task_key: apply_events_to_current
+          depends_on:
+            - task_key: generate_source_events
+          notebook_task:
+            notebook_path: ../notebooks/cdc/01_apply_events_to_current.py
+
+        # 3. Consume the committed silver Change Data Feed into durable history.
+        - task_key: publish_order_history
+          depends_on:
+            - task_key: apply_events_to_current
+          notebook_task:
+            notebook_path: ../notebooks/cdc/02_publish_order_history.py
+
+        # 4. Rebuild the small serving aggregate from current silver state.
+        - task_key: refresh_order_metrics
+          depends_on:
+            - task_key: publish_order_history
+          notebook_task:
+            notebook_path: ../notebooks/cdc/03_refresh_order_metrics.py
+
+        # 5. Fail the run if layer counts or business rules do not reconcile.
+        - task_key: validate_pipeline
+          depends_on:
+            - task_key: refresh_order_metrics
+          notebook_task:
+            notebook_path: ../notebooks/quality/01_validate_pipeline.py
+      # No cluster block is supplied: supported workspaces use serverless compute.
